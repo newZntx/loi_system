@@ -1,0 +1,116 @@
+function gerarResumo() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const ticketsSheet = spreadsheet.getSheetByName("Tickets");
+  let resumoSheet = spreadsheet.getSheetByName("Resumo");
+
+  // Verifica se a aba Resumo existe, caso contrário, cria uma nova
+  if (!resumoSheet) {
+    resumoSheet = spreadsheet.insertSheet("Resumo");
+  } else {
+    resumoSheet.clear(); // Limpa a aba Resumo
+  }
+
+  // Obtém os dados da aba Tickets
+  const data = ticketsSheet.getDataRange().getValues();
+
+  // Verifica se há dados na aba Tickets
+  if (data.length <= 1) {
+    resumoSheet.getRange(1, 1).setValue("Nenhum dado disponível para resumo.");
+    return;
+  }
+
+  // Cabeçalhos da aba Tickets
+  const headers = data[0];
+  const rows = data.slice(1); // Ignora cabeçalhos
+
+  // Índices dos campos relevantes
+  const statusIndex = headers.indexOf("status");
+  const systemIndex = headers.indexOf("system");
+  const responsibleIndex = headers.indexOf("responsible");
+  const clientIndex = headers.indexOf("client");
+  const typeIndex = headers.indexOf("type");
+  const dateIndex = headers.indexOf("date");
+  const solutionDateIndex = headers.indexOf("date_1");
+
+  // Inicializa variáveis de contagem
+  const statusCounts = {};
+  const systemCounts = {};
+  const responsibleCounts = {};
+  const clientCounts = {};
+  const typeCounts = {};
+  const dateCounts = { open: 0, closed: 0 };
+
+  // Processa os dados
+  rows.forEach(row => {
+    const status = row[statusIndex] || "Não Definido";
+    const system = row[systemIndex] || "Não Definido";
+    const responsible = row[responsibleIndex] || "Não Definido";
+    const client = row[clientIndex] || "Não Definido";
+    const type = row[typeIndex] || "Não Definido";
+    const date = row[dateIndex] || "Não definida";
+    const solutionDate = row[solutionDateIndex] || "Não finalizado";
+
+    // Conta por status
+    statusCounts[status] = (statusCounts[status] || 0) + 1;
+
+    // Conta por sistema
+    systemCounts[system] = (systemCounts[system] || 0) + 1;
+
+    // Conta por responsável
+    responsibleCounts[responsible] = (responsibleCounts[responsible] || 0) + 1;
+
+    // Conta por cliente
+    clientCounts[client] = (clientCounts[client] || 0) + 1;
+
+    // Conta por tipo de chamado
+    typeCounts[type] = (typeCounts[type] || 0) + 1;
+
+    // Contagem de datas de abertura e finalização
+    if (solutionDate !== "Não finalizado") dateCounts.closed += 1;
+    if (date !== "Não definida") dateCounts.open += 1;
+  });
+
+  // Prepara os dados para a aba Resumo
+  const summaryData = [
+    ["Resumo de Chamados", ""], // Título
+    ["", ""], // Linha vazia
+    ["Total por Status", ""],
+    ...Object.entries(statusCounts).map(([status, count]) => [status, count]),
+    ["", ""], // Linha vazia
+    ["Total por Sistema", ""],
+    ...Object.entries(systemCounts).map(([system, count]) => [system, count]),
+    ["", ""], // Linha vazia
+    ["Responsáveis e Atendimentos", ""],
+    ...Object.entries(responsibleCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([responsible, count]) => [responsible, count]),
+    ["", ""], // Linha vazia
+    ["Chamados por Cliente", ""],
+    ...Object.entries(clientCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([client, count]) => [client, count]),
+    ["", ""], // Linha vazia
+    ["Chamados por Tipo", ""],
+    ...Object.entries(typeCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([type, count]) => [type, count]),
+    ["", ""], // Linha vazia
+    ["Datas de Chamados", ""],
+    ["Abertos", dateCounts.open],
+    ["Finalizados", dateCounts.closed]
+  ];
+
+  // Garante que todas as linhas tenham exatamente 2 colunas
+  const formattedSummaryData = summaryData.map(row => {
+    if (row.length === 1) row.push(""); // Adiciona uma coluna vazia, se necessário
+    return row;
+  });
+
+  // Insere os dados no Resumo
+  resumoSheet.getRange(1, 1, formattedSummaryData.length, 2).setValues(formattedSummaryData);
+
+  // Formatações básicas
+  resumoSheet.setColumnWidths(1, 2, 200); // Ajusta a largura das colunas
+  resumoSheet.getRange("A1:B1").merge().setFontWeight("bold").setFontSize(16); // Título em negrito e maior
+  resumoSheet.getDataRange().setHorizontalAlignment("center"); // Centraliza o conteúdo
+}
